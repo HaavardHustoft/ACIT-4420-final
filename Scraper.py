@@ -5,7 +5,7 @@ import lxml.html
 from bs4 import BeautifulSoup
 
 class Scraper:
-    def __init__(self, url: str, depth: int, custom_searches=None, filename='output.txt', optional_args=None):
+    def __init__(self, url: str, depth: int, custom_searches=None, optional_args=None):
         self.url = url # Url to start scraping at
         self.depth = depth # Depth of urls to scrape
         self.custom_searches = custom_searches
@@ -14,9 +14,11 @@ class Scraper:
         self.phone_numbers = []
         self.emails = []
         self.comments = []
-        self.output = open(filename, 'w')
         self.start_scraping()
-        print(*self.emails)
+        if optional_args:
+            for arg in optional_args:
+                if arg == 'save':
+                    self.save_result()
     
     def start_scraping(self):
         self.scrape(self.url, self.depth)
@@ -24,6 +26,9 @@ class Scraper:
     def write_to_file(self, input):
         for item in input:
             self.output.write("     {}\n".format(item))
+    
+    def save_result(self): # save result of crawl to a text file
+        return
 
 
     def scrape(self, url: str, current_depth: int): # Start the scraping process
@@ -84,7 +89,7 @@ class Scraper:
 
     def find_urls(self, soup: BeautifulSoup):
         links = [i.get('href') for i in soup.find_all(
-            'a', href=re.compile(r'((http|https)[^\"]*)'))]
+            'a', href=re.compile(r'((http|https)[^\"]+)'))]
         return links
     
     def find_emails(self, content: str):
@@ -92,22 +97,19 @@ class Scraper:
         # Regex also works great here as the emails can be found in many different tags, so BeautifulSoup is not necesarry here
         regex = re.compile(
             r'([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.(com|no|edu|org|live))')
-        emails = regex.findall(content)
-        if (len(emails) > 0):
-            for i in range(0, len(emails)):
-                emails[i] = emails[i][0]
+        emails = [match[0] for match in regex.findall(content)]
         return emails
 
     def find_phone_numbers(self, content: str):
         # I am not using BeautifulSoup for this one because it is simpler to just use a regular expression
         regex = re.compile(
             r'(((\+4[0-9])\s\d{2}\s\d{2}\s\d{2}\s\d{2})|(\d{2}\s\d{2}\s\d{2}\s\d{2})|((?=href=)\"tel:\d{8}\"))')
-        phone_numbers = [match[0] for match in regex.findall(content)] # We only want the first capture group in each match
+        phone_numbers = [match[0] for match in regex.findall(content)] # I only want the first capture group in each match
         return phone_numbers
     
     def find_comments(self, content: str):
         regex = re.compile(r'(<!--([a-zA-z0-9\s.-_,]+)-->)')
-        comments = [match[1] for match in regex.findall(content)]
+        comments = [match[1] for match in regex.findall(content)] # I only save the text of the comment
         return comments
     
     def find_common_words(self, soup: BeautifulSoup):
@@ -121,6 +123,10 @@ class Scraper:
                 if not (word in unique_words):
                     unique_words.append(word)
         
+        most_common_word = self.count_words(unique_words, text_elements)
+        return most_common_word
+    
+    def count_words(self, unique_words: list, text_elements: list):
         highest = 0
         most_common_word = None
         for word in unique_words:
@@ -133,6 +139,7 @@ class Scraper:
                 highest = counter
                 most_common_word = word
         return most_common_word
+
 
 
 if __name__ == '__main__':
