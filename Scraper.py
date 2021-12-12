@@ -14,7 +14,7 @@ class Scraper:
         self.phone_numbers = []
         self.emails = []
         self.comments = []
-        self.start_scraping()
+        self.visited_urls = []
         if optional_args:
             for arg in optional_args:
                 if arg == 'save':
@@ -27,17 +27,50 @@ class Scraper:
         for item in input:
             self.output.write("     {}\n".format(item))
     
-    def save_result(self): # save result of crawl to a text file
-        return
+    def fetch_html(self, url: str):
+        try:
+            res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
+            return res
+        except requests.exceptions.ConnectionError as e:
+            print(e)
+            return None
+
+    
+    def save_result(self, filename='output.txt'): # save result of crawl to a text file
+        with open(filename, 'w') as output:
+            output.write("{}\n".format(self.url))
+            """ if self.custom_searches != None:
+                res = self.custom_search(content)
+                for i in res:
+                    self.output.write(
+                        "Result from custom search \"{}\"\n:".format(i[0]))
+                    self.write_to_file(i[1]) """
+
+            if len(self.urls) > 0:
+                output.write("Urls found:\n")
+                for item in self.urls:
+                    output.write("{}:\n".format(item[0]))
+                    for url in item[1]:
+                        output.write("  {}\n".format(url))
+
+            for item in self.emails:
+                output.write("{} emails: {}\n".format(item[0], item[1]))
+            
+            for item in self.phone_numbers:
+                output.write("{} phone numbers: {}\n".format(item[0], item[1]))
+            
+            for item in self.comments:
+                output.write("{} comments: {}\n".format(item[0], item[1]))
 
 
     def scrape(self, url: str, current_depth: int): # Start the scraping process
-        try:
-            res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
-        except requests.exceptions.ConnectionError as e:
-            print(e)
+        if url in self.visited_urls:
             return
+        
+        res = self.fetch_html(url)
 
+        if res == None:
+            return
         content = res.text
         soup = BeautifulSoup(content, features='lxml')
         urls = self.find_urls(soup)
@@ -49,30 +82,7 @@ class Scraper:
         self.comments.append((url, self.find_comments(content)))
         self.common_words.append((url, self.find_common_words(soup)))
         
-        """ self.output.write("{}\n".format(url))
-
-        if self.custom_searches != None:
-            res = self.custom_search(content)
-            for i in res:
-                self.output.write("Result from custom search \"{}\"\n:".format(i[0]))
-                self.write_to_file(i[1])
-
-        if len(urls) > 0:
-            self.output.write("Urls found on this site:\n")
-            self.write_to_file(urls)
-        
-        if len(emails) > 0:
-            self.output.write("Emails found on this site:\n")
-            self.write_to_file(emails)
-        
-        if len(phone_numbers) > 0:
-            self.output.write("Phone numbers found on this site:\n")
-            self.write_to_file(phone_numbers)
-        
-        if len(comments) > 0:
-            self.output.write("Comments found on this site:\n")
-            self.write_to_file(comments)
-        self.output.write("---------------------------------------------\n") """
+        self.visited_urls.append(url) # Marks this ulr as already scraped
 
         if current_depth == 0:
             return
@@ -86,6 +96,10 @@ class Scraper:
             regex = re.compile(r)
             result.append((r, regex.findall(content)))
         return result
+    
+    def custom_search_soup(self, soup: BeautifulSoup, search_param: str):
+        pass
+
 
     def find_urls(self, soup: BeautifulSoup):
         links = [i.get('href') for i in soup.find_all(
@@ -128,7 +142,7 @@ class Scraper:
     
     def count_words(self, unique_words: list, text_elements: list):
         highest = 0
-        most_common_word = None
+        most_common_word = ""
         for word in unique_words:
             counter = 0
             for element in text_elements:
@@ -145,6 +159,8 @@ class Scraper:
 if __name__ == '__main__':
     start = time.time()
     s = Scraper(
-        'https://www.vg.no', 0)
+        'https://www.vg.no', 1)
+    s.start_scraping()
+    s.save_result()
     end = time.time()
     print(end-start)
