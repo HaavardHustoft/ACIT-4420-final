@@ -5,20 +5,16 @@ import lxml.html
 from bs4 import BeautifulSoup
 
 class Scraper:
-    def __init__(self, url: str, depth: int, custom_searches=None, optional_args=None):
+    def __init__(self, url: str, depth: int):
         self.url = url # Url to start scraping at
         self.depth = depth # Depth of urls to scrape
-        self.custom_searches = custom_searches
         self.common_words = []
         self.urls = []
         self.phone_numbers = []
         self.emails = []
         self.comments = []
         self.visited_urls = []
-        if optional_args:
-            for arg in optional_args:
-                if arg == 'save':
-                    self.save_result()
+        
     
     def start_scraping(self):
         self.scrape(self.url, self.depth)
@@ -29,9 +25,12 @@ class Scraper:
     
     def fetch_html(self, url: str):
         try:
-            res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
+            res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
             return res
         except requests.exceptions.ConnectionError as e:
+            print(e)
+            return None
+        except requests.exceptions.TooManyRedirects as e:
             print(e)
             return None
 
@@ -39,19 +38,12 @@ class Scraper:
     def save_result(self, filename='output.txt'): # save result of crawl to a text file
         with open(filename, 'w') as output:
             output.write("{}\n".format(self.url))
-            """ if self.custom_searches != None:
-                res = self.custom_search(content)
-                for i in res:
-                    self.output.write(
-                        "Result from custom search \"{}\"\n:".format(i[0]))
-                    self.write_to_file(i[1]) """
 
-            if len(self.urls) > 0:
-                output.write("Urls found:\n")
-                for item in self.urls:
-                    output.write("{}:\n".format(item[0]))
-                    for url in item[1]:
-                        output.write("  {}\n".format(url))
+            output.write("Urls found:\n")
+            for item in self.urls:
+                output.write("{}:\n".format(item[0]))
+                for url in item[1]:
+                    output.write("  {}\n".format(url))
 
             for item in self.emails:
                 output.write("{} emails: {}\n".format(item[0], item[1]))
@@ -68,22 +60,26 @@ class Scraper:
             return
         
         res = self.fetch_html(url)
-
         if res == None:
             return
+
         content = res.text
+        if (len(content) > 200000):
+            # Site is too big
+            return
         soup = BeautifulSoup(content, features='lxml')
+        
         urls = self.find_urls(soup)
 
-        # All lists are formatted as a tuple (url, list_of_results)
+        # All lists are formatted tuples (url, list_of_results) and added to the instance variables
         self.urls.append((url, urls))
         self.phone_numbers.append((url, self.find_phone_numbers(content)))
-        self.emails.append((url, self.find_emails(content)))
+        self.emails.append((url, self.find_emails(content, url)))
         self.comments.append((url, self.find_comments(content)))
         self.common_words.append((url, self.find_common_words(soup)))
         
-        self.visited_urls.append(url) # Marks this ulr as already scraped
-
+        self.visited_urls.append(url) # Marks this url as visited
+        
         if current_depth == 0:
             return
         else:
@@ -97,21 +93,26 @@ class Scraper:
             result.append((r, regex.findall(content)))
         return result
     
-    def custom_search_soup(self, soup: BeautifulSoup, search_param: str):
-        pass
+    def custom_search_soup(self,soup: BeautifulSoup, search_param: str):
+        # This method finds all occurances of html tag specified by search_param
+        result = soup.find_all(search_param)
+        return result
 
 
     def find_urls(self, soup: BeautifulSoup):
-        links = [i.get('href') for i in soup.find_all(
-            'a', href=re.compile(r'((http|https)[^\"]+)'))]
+        a_tags = soup.find_all(
+            'a', href=re.compile(r'(^(http|https)[^\"]+)(?<!\.pdf)$'))
+        links = [i.get('href') for i in a_tags]
         return links
     
-    def find_emails(self, content: str):
+    def find_emails(self, content: str, url: str):
         # Only finds emails ending with com,org,no,edu or live
-        # Regex also works great here as the emails can be found in many different tags, so BeautifulSoup is not necesarry here
+        # Regex also works great here as the emails can be found in many different tags, so BeautifulSoup is not necesarry
         regex = re.compile(
-            r'([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.(com|no|edu|org|live))')
-        emails = [match[0] for match in regex.findall(content)]
+            r'([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)')
+        print(url, len(content))
+        e = regex.findall(content)
+        emails = [match[0] for match in e]
         return emails
 
     def find_phone_numbers(self, content: str):
@@ -130,7 +131,6 @@ class Scraper:
         regex = re.compile(r'[a-zA-Z0-9.,\-!?]+') # only interested in actual words, not symbols
         text_elements = [list(filter(lambda x: x if regex.match(x)
          else "",i.getText(strip=True).split())) for i in soup.find_all(['p','strong','br', 'span', 'em'])]
-        
         unique_words = []
         for i in range(len(text_elements)):
             for word in text_elements[i]:
@@ -153,14 +153,45 @@ class Scraper:
                 highest = counter
                 most_common_word = word
         return most_common_word
+    
+    def get_stats(self):
+        urls = self.urls
+        emails = self.emails
+        total_urls = 0
+        total_emails = 0
+        for item in urls:
+            total_urls += len(item[1])
+        avg_ulrs = round(total_urls / len(urls))
+        avg_emails = 0
+        if len(emails) > 0:
+            for email in emails:
+                total_emails += len(email[1])
+            avg_emails = round(total_emails / len(emails))
+        print(avg_emails, avg_ulrs)
 
+    
+"""     def query_search(self, query: str):
+        s = query.replace(' ', '+')
+        url = "https://en.wikipedia.org/w/index.php?search={}&title=Special%3ASearch&fulltext=1&ns0=1".format(
+            s)
+        res = self.fetch_html(url)
+        if res == None:
+            return
+        text = res.text
+        soup = BeautifulSoup(text, features='lxml')
+        search_results = soup.find_all('div', class_='mw-search-result-heading')
+        links = []
+        for item in search_results:
+            links.append(item.) """
 
 
 if __name__ == '__main__':
     start = time.time()
     s = Scraper(
-        'https://www.vg.no', 1)
+        'https://www.uio.no', 1)
     s.start_scraping()
-    s.save_result()
+    #s.save_result()
     end = time.time()
     print(end-start)
+    s.get_stats()
+    
