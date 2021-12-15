@@ -3,14 +3,14 @@ import time
 import matplotlib.pyplot as plt
 
 
-def test_time_demand():
+def test_time_demand(url):
     times = []
     max_depth = 4
     for i in range (5):
         l = []
         for depth in range(max_depth):
             start = time.time()
-            s = Scraper('https://en.wikipedia.org/Main_page', depth)
+            s = Scraper(url, depth)
             s.start_scraping()
             end = time.time()
             t = end - start
@@ -28,7 +28,8 @@ def test_time_demand():
     plt.xticks([i for i in range(0, max_depth)])
     plt.xlabel('Depth')
     plt.ylabel('Seconds')
+    plt.title('Average execution time when starting from {}'.format(url))
     plt.savefig('times.png')
 
 if __name__=='__main__':
-    test_time_demand()
+    test_time_demand('https://uio.no')

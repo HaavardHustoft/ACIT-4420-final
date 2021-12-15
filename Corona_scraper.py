@@ -5,9 +5,9 @@ from matplotlib import pyplot as plt
 
 class Corona_scraper(Scraper): # This class is an example of how Scraper can be extended for specific cases
     def __init__(self):
-        url = "https://www.worldometers.info/coronavirus/countries-where-coronavirus-has-spread/"
-        depth = 0
-        super().__init__(url, depth)
+        self.url = "https://www.worldometers.info/coronavirus/countries-where-coronavirus-has-spread/"
+        self.depth = 0
+        super().__init__()
         self.data = []
     
     def scrape_corona_data(self):

@@ -5,9 +5,7 @@ import lxml.html
 from bs4 import BeautifulSoup
 
 class Scraper:
-    def __init__(self, url: str, depth: int):
-        self.url = url # Url to start scraping at
-        self.depth = depth # Depth of urls to scrape
+    def __init__(self):
         self.common_words = []
         self.urls = []
         self.phone_numbers = []
@@ -16,8 +14,8 @@ class Scraper:
         self.visited_urls = []
         
     
-    def start_scraping(self):
-        self.scrape(self.url, self.depth)
+    def start_scraping(self, url: str, depth: int):
+        self.scrape(url, depth)
     
     def write_to_file(self, input):
         for item in input:
@@ -64,9 +62,6 @@ class Scraper:
             return
 
         content = res.text
-        if (len(content) > 200000):
-            # Site is too big
-            return
         soup = BeautifulSoup(content, features='lxml')
         
         urls = self.find_urls(soup)
@@ -85,50 +80,66 @@ class Scraper:
         else:
             for u in urls:
                 self.scrape(u, current_depth - 1) # Recursively scrape urls when depth > 0
-    
-    def custom_search(self, content: str):
-        result = []
-        for r in self.custom_searches:
-            regex = re.compile(r)
-            result.append((r, regex.findall(content)))
+
+    def find_elements_by_tag(self, url: str, tag: str):
+        # Returns all matching tags
+        result = self.fetch_html(url)
+        if result:
+            soup = BeautifulSoup(result.text, features='lxml')
+            result = soup.find_all(tag)
         return result
     
-    def custom_search_soup(self,soup: BeautifulSoup, search_param: str):
-        # This method finds all occurances of html tag specified by search_param
-        result = soup.find_all(search_param)
+    def find_element_by_id(self, url: str, id: str):
+        result = self.fetch_html(url)
+        if result:
+            soup = BeautifulSoup(result.text, features='lxml')
+            result = soup.find(id=id).prettify()
         return result
+    
+    def find_tag(self, url: str, tag: str):
+        # Returns the first matching tag
+        result = self.fetch_html(url)
+        if result:
+            soup = BeautifulSoup(result.text, features='lxml')
+            result = soup.find(tag)
+        return result
+    
+    def exists(self, url: str, regex: str):
+        # Checks if the regular expression exists on the website
+        result = self.fetch_html(url)
+        if result:
+            r = re.compile(regex, flags=re.MULTILINE)
+            result = r.search(result.text)
+        return bool(result)
 
 
     def find_urls(self, soup: BeautifulSoup):
         a_tags = soup.find_all(
-            'a', href=re.compile(r'(^(http|https)[^\"]+)(?<!\.pdf)$'))
+            'a', href=re.compile(r'(^(http|https)[^\"]+)(?<!\.pdf)$', flags=re.MULTILINE))
         links = [i.get('href') for i in a_tags]
         return links
     
     def find_emails(self, content: str, url: str):
-        # Only finds emails ending with com,org,no,edu or live
-        # Regex also works great here as the emails can be found in many different tags, so BeautifulSoup is not necesarry
         regex = re.compile(
-            r'([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)')
-        print(url, len(content))
+            r'(\b[a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)', flags=re.MULTILINE)
         e = regex.findall(content)
         emails = [match[0] for match in e]
         return emails
 
     def find_phone_numbers(self, content: str):
-        # I am not using BeautifulSoup for this one because it is simpler to just use a regular expression
         regex = re.compile(
-            r'(((\+4[0-9])\s\d{2}\s\d{2}\s\d{2}\s\d{2})|(\d{2}\s\d{2}\s\d{2}\s\d{2})|((?=href=)\"tel:\d{8}\"))')
-        phone_numbers = [match[0] for match in regex.findall(content)] # I only want the first capture group in each match
+            r'\b((\+?4[0-9]\s?)?(\d{2}\s){3}\d{2})\b', flags=re.MULTILINE)
+        phone_numbers = [match[0] for match in regex.findall(content)]
         return phone_numbers
     
     def find_comments(self, content: str):
-        regex = re.compile(r'(<!--([a-zA-z0-9\s.-_,]+)-->)')
-        comments = [match[1] for match in regex.findall(content)] # I only save the text of the comment
+        regex = re.compile(r'<!--(.*)-->', flags=re.MULTILINE)
+        comments = [match[0] for match in regex.findall(content)] # I only save the text of the comment
         return comments
     
     def find_common_words(self, soup: BeautifulSoup):
-        regex = re.compile(r'[a-zA-Z0-9.,\-!?]+') # only interested in actual words, not symbols
+        # only interested in actual words, not symbols
+        regex = re.compile(r'[a-zA-Z0-9.,\-!?]+', flags=re.MULTILINE)
         text_elements = [list(filter(lambda x: x if regex.match(x)
          else "",i.getText(strip=True).split())) for i in soup.find_all(['p','strong','br', 'span', 'em'])]
         unique_words = []
@@ -157,17 +168,27 @@ class Scraper:
     def get_stats(self):
         urls = self.urls
         emails = self.emails
+        phone_numbers = self.phone_numbers
         total_urls = 0
         total_emails = 0
+        total_phone_numbers = 0
+        avg_phone_numbers = 0
         for item in urls:
             total_urls += len(item[1])
-        avg_ulrs = round(total_urls / len(urls))
+        avg_urls = round(total_urls / len(urls))
         avg_emails = 0
         if len(emails) > 0:
             for email in emails:
                 total_emails += len(email[1])
             avg_emails = round(total_emails / len(emails))
-        print(avg_emails, avg_ulrs)
+        if (len(phone_numbers) > 0):
+            for number in phone_numbers:
+                total_phone_numbers += len(number[1])
+            avg_phone_numbers = round(total_phone_numbers / len(phone_numbers))
+        averages = [avg_urls, avg_emails, avg_phone_numbers]
+        
+        
+        print(avg_emails, avg_urls, avg_phone_numbers)
 
     
 """     def query_search(self, query: str):
@@ -187,11 +208,12 @@ class Scraper:
 
 if __name__ == '__main__':
     start = time.time()
-    s = Scraper(
-        'https://www.uio.no', 1)
-    s.start_scraping()
-    #s.save_result()
+    s = Scraper()
+    """ s.start_scraping('https://www.uio.no', 1)
     end = time.time()
     print(end-start)
-    s.get_stats()
+    s.get_stats() """
+    print(s.find_element_by_id('https://www.uio.no', 'head'))
+    print(s.exists('https://www.uio.no', r'UiO'))
+    print(s.find_elements_by_tag('https://www.uio.no', 'a'))
     
