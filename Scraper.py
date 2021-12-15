@@ -11,11 +11,12 @@ class Scraper:
         self.phone_numbers = []
         self.emails = []
         self.comments = []
+        self.search_results = []
         self.visited_urls = []
         
     
-    def start_scraping(self, url: str, depth: int):
-        self.scrape(url, depth)
+    def start_scraping(self, url: str, depth: int, search_params=[]):
+        self.scrape(url, depth, search_params)
     
     def write_to_file(self, input):
         for item in input:
@@ -53,7 +54,7 @@ class Scraper:
                 output.write("{} comments: {}\n".format(item[0], item[1]))
 
 
-    def scrape(self, url: str, current_depth: int): # Start the scraping process
+    def scrape(self, url: str, current_depth: int, search_params: list): # Start the scraping process
         if url in self.visited_urls:
             return
         
@@ -65,6 +66,11 @@ class Scraper:
         soup = BeautifulSoup(content, features='lxml')
         
         urls = self.find_urls(soup)
+
+        for param in search_params:
+            r =  self.find_custom(content, param)
+            if r:
+                self.search_results.append(r)
 
         # All lists are formatted tuples (url, list_of_results) and added to the instance variables
         self.urls.append((url, urls))
@@ -79,7 +85,7 @@ class Scraper:
             return
         else:
             for u in urls:
-                self.scrape(u, current_depth - 1) # Recursively scrape urls when depth > 0
+                self.scrape(u, current_depth - 1, search_params) # Recursively scrape urls when depth > 0
 
     def find_elements_by_tag(self, url: str, tag: str):
         # Returns all matching tags
@@ -134,8 +140,13 @@ class Scraper:
     
     def find_comments(self, content: str):
         regex = re.compile(r'<!--(.*)-->', flags=re.MULTILINE)
-        comments = [match[0] for match in regex.findall(content)] # I only save the text of the comment
+        comments = regex.findall(content)
         return comments
+    
+    def find_custom(self, content: str, param: str):
+        regex = re.compile(param, flags=re.MULTILINE)
+        result = regex.findall(content)
+        return result
     
     def find_common_words(self, soup: BeautifulSoup):
         # only interested in actual words, not symbols
@@ -189,31 +200,6 @@ class Scraper:
         
         
         print(avg_emails, avg_urls, avg_phone_numbers)
+        return averages
 
-    
-"""     def query_search(self, query: str):
-        s = query.replace(' ', '+')
-        url = "https://en.wikipedia.org/w/index.php?search={}&title=Special%3ASearch&fulltext=1&ns0=1".format(
-            s)
-        res = self.fetch_html(url)
-        if res == None:
-            return
-        text = res.text
-        soup = BeautifulSoup(text, features='lxml')
-        search_results = soup.find_all('div', class_='mw-search-result-heading')
-        links = []
-        for item in search_results:
-            links.append(item.) """
-
-
-if __name__ == '__main__':
-    start = time.time()
-    s = Scraper()
-    """ s.start_scraping('https://www.uio.no', 1)
-    end = time.time()
-    print(end-start)
-    s.get_stats() """
-    print(s.find_element_by_id('https://www.uio.no', 'head'))
-    print(s.exists('https://www.uio.no', r'UiO'))
-    print(s.find_elements_by_tag('https://www.uio.no', 'a'))
     

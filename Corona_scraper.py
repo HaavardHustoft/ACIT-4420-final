@@ -34,11 +34,6 @@ class Corona_scraper(Scraper): # This class is an example of how Scraper can be 
         plt.savefig('fig.png', dpi=199)
 
 
-
-            
-        
-
-
 if __name__=='__main__':
     s = Corona_scraper()
     s.scrape_corona_data()
