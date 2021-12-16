@@ -11,10 +11,9 @@ def test_time_demand(url):
         for depth in range(max_depth):
             start = time.time()
             s = Scraper(url, depth)
-            s.start_scraping()
+            s.start_scraping(url, depth)
             end = time.time()
             t = end - start
-            print(t)
             l.append(t)
         times.append(l)
     averages = [0 for i in range(max_depth)]

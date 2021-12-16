@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 
 class Scraper:
     def __init__(self):
+        self.start_url = ""
         self.common_words = []
         self.urls = []
         self.phone_numbers = []
@@ -16,6 +17,7 @@ class Scraper:
         
     
     def start_scraping(self, url: str, depth: int, search_params=[]):
+        self.start_url = url
         self.scrape(url, depth, search_params)
     
     def write_to_file(self, input):
@@ -34,11 +36,9 @@ class Scraper:
             return None
 
     
-    def save_result(self, filename='output.txt'): # save result of crawl to a text file
+    def save_result(self, filename='output.txt'):
         with open(filename, 'w') as output:
-            output.write("{}\n".format(self.url))
-
-            output.write("Urls found:\n")
+            output.write("Start url: {}\n".format(self.start_url))
             for item in self.urls:
                 output.write("{}:\n".format(item[0]))
                 for url in item[1]:
@@ -54,14 +54,14 @@ class Scraper:
                 output.write("{} comments: {}\n".format(item[0], item[1]))
 
 
-    def scrape(self, url: str, current_depth: int, search_params: list): # Start the scraping process
+    def scrape(self, url: str, current_depth: int, search_params: list):
         if url in self.visited_urls:
             return
         
         res = self.fetch_html(url)
         if res == None:
             return
-
+        print(url)
         content = res.text
         soup = BeautifulSoup(content, features='lxml')
         
@@ -72,11 +72,17 @@ class Scraper:
             if r:
                 self.search_results.append(r)
 
-        # All lists are formatted tuples (url, list_of_results) and added to the instance variables
+        # All results are formatted tuples (url, list_of_results) and added to the instance variables
         self.urls.append((url, urls))
-        self.phone_numbers.append((url, self.find_phone_numbers(content)))
-        self.emails.append((url, self.find_emails(content, url)))
-        self.comments.append((url, self.find_comments(content)))
+        phone_numbers = self.find_phone_numbers(content)
+        if phone_numbers:
+            self.phone_numbers.append((url, phone_numbers))
+        emails = self.find_emails(content, url)
+        if emails:
+            self.emails.append((url, emails))
+        comments = self.find_comments(content)
+        if comments:
+            self.comments.append((url, comments))
         self.common_words.append((url, self.find_common_words(soup)))
         
         self.visited_urls.append(url) # Marks this url as visited
@@ -121,20 +127,20 @@ class Scraper:
 
     def find_urls(self, soup: BeautifulSoup):
         a_tags = soup.find_all(
-            'a', href=re.compile(r'(^(http|https)[^\"]+)(?<!\.pdf)$', flags=re.MULTILINE))
+            'a', href=re.compile(r'(^(http|https)[^\"]+)(?<!\.pdf)(?<!\.mp4)(?<!\.png)(?<!\.img)$', flags=re.MULTILINE))
         links = [i.get('href') for i in a_tags]
         return links
     
     def find_emails(self, content: str, url: str):
         regex = re.compile(
-            r'(\b[a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)', flags=re.MULTILINE)
-        e = regex.findall(content)
-        emails = [match[0] for match in e]
+            r'\b([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)', flags=re.MULTILINE)
+        emails = regex.findall(content)
         return emails
 
     def find_phone_numbers(self, content: str):
         regex = re.compile(
             r'\b((\+?4[0-9]\s?)?(\d{2}\s){3}\d{2})\b', flags=re.MULTILINE)
+        print(regex.findall(content))
         phone_numbers = [match[0] for match in regex.findall(content)]
         return phone_numbers
     
@@ -150,7 +156,7 @@ class Scraper:
     
     def find_common_words(self, soup: BeautifulSoup):
         # only interested in actual words, not symbols
-        regex = re.compile(r'[a-zA-Z0-9.,\-!?]+', flags=re.MULTILINE)
+        regex = re.compile(r'\b[a-zA-Z0-9.,\-!?]+', flags=re.MULTILINE)
         text_elements = [list(filter(lambda x: x if regex.match(x)
          else "",i.getText(strip=True).split())) for i in soup.find_all(['p','strong','br', 'span', 'em'])]
         unique_words = []
@@ -193,13 +199,10 @@ class Scraper:
                 total_emails += len(email[1])
             avg_emails = round(total_emails / len(emails))
         if (len(phone_numbers) > 0):
-            for number in phone_numbers:
-                total_phone_numbers += len(number[1])
+            for numbers in phone_numbers:
+                total_phone_numbers += len(numbers[1])
             avg_phone_numbers = round(total_phone_numbers / len(phone_numbers))
         averages = [avg_urls, avg_emails, avg_phone_numbers]
         
-        
-        print(avg_emails, avg_urls, avg_phone_numbers)
         return averages
-
     
