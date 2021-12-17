@@ -61,7 +61,6 @@ class Scraper:
         res = self.fetch_html(url)
         if res == None:
             return
-        print(url)
         content = res.text
         soup = BeautifulSoup(content, features='lxml')
         
@@ -74,15 +73,9 @@ class Scraper:
 
         # All results are formatted tuples (url, list_of_results) and added to the instance variables
         self.urls.append((url, urls))
-        phone_numbers = self.find_phone_numbers(content)
-        if phone_numbers:
-            self.phone_numbers.append((url, phone_numbers))
-        emails = self.find_emails(content, url)
-        if emails:
-            self.emails.append((url, emails))
-        comments = self.find_comments(content)
-        if comments:
-            self.comments.append((url, comments))
+        self.phone_numbers.append((url, self.find_phone_numbers(content)))
+        self.emails.append((url, self.find_emails(content)))
+        self.comments.append((url, self.find_comments(content)))
         self.common_words.append((url, self.find_common_words(soup)))
         
         self.visited_urls.append(url) # Marks this url as visited
@@ -131,7 +124,7 @@ class Scraper:
         links = [i.get('href') for i in a_tags]
         return links
     
-    def find_emails(self, content: str, url: str):
+    def find_emails(self, content: str):
         regex = re.compile(
             r'\b([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)', flags=re.MULTILINE)
         emails = regex.findall(content)
@@ -139,8 +132,7 @@ class Scraper:
 
     def find_phone_numbers(self, content: str):
         regex = re.compile(
-            r'\b((\+?4[0-9]\s?)?(\d{2}\s){3}\d{2})\b', flags=re.MULTILINE)
-        print(regex.findall(content))
+            r'\b((\+?4[0-9]\s)?(\d{2}\s){3}\d{2})\b', flags=re.MULTILINE)
         phone_numbers = [match[0] for match in regex.findall(content)]
         return phone_numbers
     

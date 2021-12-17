@@ -1,4 +1,6 @@
 import unittest
+
+from bs4 import BeautifulSoup, FeatureNotFound
 from Scraper import Scraper
 from Corona_scraper import Corona_scraper
 
@@ -31,6 +33,41 @@ class Main(unittest.TestCase):
         s = Scraper()
         res = s.find_tag('https://www.uio.no', 'nav')
         self.assertTrue(res != None)
+    
+    def test_find_custom(self):
+        s = Scraper()
+        content = s.fetch_html(
+            'https://crawler-test.com/content/custom_text').text
+        res = s.find_custom(content, r'Custom\s[a-z]{4}')
+        self.assertEqual(res, ['Custom text', 'Custom text', 'Custom text'])
+    
+    def test_find_comments(self):
+        s = Scraper()
+        content = s.fetch_html('https://crawler-test.com/content/custom_text').text
+        res = s.find_comments(content)
+        self.assertEqual(res, [' Google Tag Manager ', ' End Google Tag Manager '])
+    
+    def test_find_phone_numbers(self):
+        s = Scraper()
+        content = s.fetch_html('https://uio.no').text
+        res = s.find_phone_numbers(content)
+        self.assertEqual(res, ['22 85 66 66'])
+    
+    def test_find_emails(self):
+        s = Scraper()
+        content = s.fetch_html(
+            'https://www.mn.uio.no/').text
+        res = s.find_emails(content)
+        self.assertEqual(res, ['postmottak@mn.uio.no',
+                         'postmottak@mn.uio.no', 'nettredaktor@mn.uio.no'])
+    
+    def test_find_urls(self):
+        s = Scraper()
+        soup = BeautifulSoup(s.fetch_html(
+            'https://crawler-test.com/links/page_with_external_links').text, features='lxml')
+        res = s.find_urls(soup)
+        self.assertEqual(len(res), 5)
+
     
     
 
