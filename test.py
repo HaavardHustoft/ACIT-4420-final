@@ -68,9 +68,6 @@ class Main(unittest.TestCase):
         res = s.find_urls(soup)
         self.assertEqual(len(res), 5)
 
-    
-    
-
 
 if __name__=='__main__':
     unittest.main()

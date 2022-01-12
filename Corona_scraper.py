@@ -31,7 +31,8 @@ class Corona_scraper(Scraper): # This class is an example of how Scraper can be 
         labels = [data[i][0] for i in range(0, 9)]
         values = [data[i][1] for i in range(0, 9)]
         plt.bar(labels, values)
-        plt.show()
+        plt.xticks(rotation=45)
+        plt.savefig('corona.png', bbox_inches='tight')
 
 
 if __name__=='__main__':
