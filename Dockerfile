@@ -1,10 +1,8 @@
-FROM python:3.10.1-alpine
+FROM python:3
 
-RUN 'apt-get install -y python-pip'
+COPY requirements.txt ./
 
-COPY requirements.txt .
-
-RUN 'pip --version'
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY *.py .
 
